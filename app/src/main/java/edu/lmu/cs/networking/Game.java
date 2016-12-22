@@ -9,7 +9,13 @@ import java.net.Socket;
 /**
  * A two-player game.
  */
-public class    Game {
+public class Game {
+
+    static final Cell[][] board1 = {{new Cell(CellTypes.BRICK), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.BRICK), new Cell(CellTypes.EMPTY)},
+            {new Cell(CellTypes.BRICK), new Cell(CellTypes.GRANITE), new Cell(CellTypes.EMPTY), new Cell(CellTypes.GRANITE), new Cell(CellTypes.BRICK)},
+            {new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.GRANITE), new Cell(CellTypes.EMPTY)},
+            {new Cell(CellTypes.EMPTY), new Cell(CellTypes.BRICK), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY)},
+            {new Cell(CellTypes.GRANITE), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.EMPTY), new Cell(CellTypes.BRICK)}};
 
     /**
      * A board has nine squares.  Each square is either unowned or
@@ -31,30 +37,24 @@ public class    Game {
     /**
      * Returns whether the current state of the board is such that one
      * of the players is a winner.
+     * TODO
      */
-    public boolean hasWinner() {
-        return
-                (board[0] != null && board[0] == board[1] && board[0] == board[2])
-                        ||(board[3] != null && board[3] == board[4] && board[3] == board[5])
-                        ||(board[6] != null && board[6] == board[7] && board[6] == board[8])
-                        ||(board[0] != null && board[0] == board[3] && board[0] == board[6])
-                        ||(board[1] != null && board[1] == board[4] && board[1] == board[7])
-                        ||(board[2] != null && board[2] == board[5] && board[2] == board[8])
-                        ||(board[0] != null && board[0] == board[4] && board[0] == board[8])
-                        ||(board[2] != null && board[2] == board[4] && board[2] == board[6]);
+    public boolean hasWinner(int shX, int shY) {
+        return false;
+
     }
 
     /**
      * Returns whether there are no more empty squares.
      */
-    public boolean boardFilledUp() {
-        for (int i = 0; i < board.length; i++) {
-            if (board[i] == null) {
-                return false;
-            }
-        }
-        return true;
-    }
+//    public boolean boardFilledUp() {
+//        for (int i = 0; i < board.length; i++) {
+//            if (board[i] == null) {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
     /**
      * Called by the player threads when a player tries to make a
@@ -66,11 +66,12 @@ public class    Game {
      * the other player is notified of the move so it can update its
      * client.
      */
+    @Deprecated
     public synchronized boolean legalMove(int location, Player player) {
         if (player == currentPlayer && board[location] == null) {
             board[location] = currentPlayer;
             currentPlayer = currentPlayer.opponent;
-            currentPlayer.otherPlayerMoved(location);
+            // currentPlayer.otherPlayerMoved(location);
             /*
             try {
                 Thread.sleep(5000);
@@ -79,6 +80,14 @@ public class    Game {
             }
             */
             return true;
+        }
+        return false;
+    }
+
+    public synchronized boolean canMoveHere(int shX, int shY, Player player) {
+        if (player == currentPlayer && board1[currentPlayer.getRealPositionX() + shX][currentPlayer.getRealPositionY() + shY].getType().equals(CellTypes.EMPTY)) {
+            currentPlayer = currentPlayer.opponent;
+            currentPlayer.otherPlayerMoved(currentPlayer.getRealPositionX() + shX, currentPlayer.getRealPositionY() + shY);
         }
         return false;
     }
@@ -92,25 +101,47 @@ public class    Game {
      * reader and a writer.
      */
     class Player extends Thread {
-        char mark;
+        String name;
         Player opponent;
         Socket socket;
         BufferedReader input;
         PrintWriter output;
+
+        int realPositionX;
+        int realPositionY;
+
+        int shiftX;
+        int shiftY;
+
+        public int getRealPositionX() {
+            return realPositionX;
+        }
+
+        public void setRealPositionX(int realPositionX) {
+            this.realPositionX = realPositionX;
+        }
+
+        public int getRealPositionY() {
+            return realPositionY;
+        }
+
+        public void setRealPositionY(int realPositionY) {
+            this.realPositionY = realPositionY;
+        }
 
         /**
          * Constructs a handler thread for a given socket and mark
          * initializes the stream fields, displays the first two
          * welcoming messages.
          */
-        public Player(Socket socket, char mark) {
+        public Player(Socket socket, String name, int realPositionX, int realPositionY) {
             this.socket = socket;
-            this.mark = mark;
+            this.name = name;
             try {
                 input = new BufferedReader(
                         new InputStreamReader(socket.getInputStream()));
                 output = new PrintWriter(socket.getOutputStream(), true);
-                output.println("WELCOME " + mark);
+                output.println("WELCOME " + name);
                 output.println("MESSAGE Waiting for opponent to connect");
             } catch (IOException e) {
                 System.out.println("Player died: " + e);
@@ -127,10 +158,11 @@ public class    Game {
         /**
          * Handles the otherPlayerMoved message.
          */
-        public void otherPlayerMoved(int location) {
-            output.println("OPPONENT_MOVED " + location);
-            output.println(
-                    hasWinner() ? "DEFEAT" : boardFilledUp() ? "TIE" : "");
+        public void otherPlayerMoved(int realPositionX, int realPositionY) {
+            output.println("OPPONENT_MOVED " + realPositionX + realPositionY);
+            // TODO: 15.12.2016  
+//            output.println(
+//                    hasWinner() ? "DEFEAT" : boardFilledUp() ? "TIE" : "");
         }
 
         /**
@@ -142,42 +174,85 @@ public class    Game {
                 output.println("MESSAGE All players connected");
 
                 // Tell the first player that it is her turn.
-                if (mark == 'X') {
+                if (name == "pl1") {
                     output.println("MESSAGE Your move");
                 }
 
                 // Repeatedly get commands from the client and process them.
                 while (true) {
+                    //// TODO: 15.12.2016
                     String command = input.readLine();
                     if (command.startsWith("MOVE")) {
-                        int location = Integer.parseInt(command.substring(5));
-                        if (legalMove(location, this)) {
+                        shiftX = Integer.parseInt(command.substring(5));
+                        shiftY = Integer.parseInt(command.substring(6));
+                        if (canMoveHere(shiftX, shiftY, this)) {
+                            //на клиенте нужно запомнить куда он пытался ходить
                             output.println("VALID_MOVE");
-                            output.println(hasWinner() ? "VICTORY"
-                                    : boardFilledUp() ? "TIE"
-                                    : "");
-                        } else {
-                            output.println("MESSAGE ?");
+                            realPositionX += shiftX;
+                            realPositionY += shiftY;
+                            currentPlayer.opponent.output.println("OPPONENT "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                                    " ? ? ?");
                         }
                     } else if (command.startsWith("QUIT")) {
                         return;
                     }
+
+                    if (command.startsWith("BOMB")) {
+                        shiftX = Integer.parseInt(command.substring(5));
+                        shiftY = Integer.parseInt(command.substring(6));
+                        if (hasWinner(currentPlayer.realPositionX + shiftX, currentPlayer.realPositionY + shiftY)) {
+                            output.println("WIN");
+                            currentPlayer.opponent.output.println("DEFEAT");
+                        } else {
+
+                            if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.GRANITE)) {
+                                output.println("BOMBED " + "g");
+                                currentPlayer.opponent.output.println("OPPONENT ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                                        " ? ?");
+                            }
+                            if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.EMPTY)) {
+                                output.println("BOMBED " + "e");
+                                currentPlayer.opponent.output.println("OPPONENT ? ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                                        " ?");
+                            }
+                        }
+                    }
+
+                    if (command.startsWith("ASK")) {
+                        shiftX = Integer.parseInt(command.substring(4));
+                        shiftY = Integer.parseInt(command.substring(5));
+                        if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.GRANITE) ||
+                                board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.BRICK)) {
+                            //u -uknown cell
+                            // e-empty cell
+                            output.println("ASK " + "u");
+                            currentPlayer.opponent.output.println("OPPONENT ? ? ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY));
+                        }
+                        if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.EMPTY)) {
+                            output.println("ASK " + "e");
+                            currentPlayer.opponent.output.println("OPPONENT ? ?"+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                                    " ?");
+                        }
+
+                    }
                 }
+
             } catch (IOException e) {
                 System.out.println("Player died: " + e);
             } finally {
-                try {socket.close();} catch (IOException e) {}
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                }
             }
         }
-        }
+    }
 
     @Override
-    public String toString()
-    {
-        if (currentPlayer!=null) {
-            return currentPlayer.mark + " has won";
-        }
-        else {
+    public String toString() {
+        if (currentPlayer != null) {
+            return currentPlayer.name + " has won";
+        } else {
             return "game in progress";
         }
 

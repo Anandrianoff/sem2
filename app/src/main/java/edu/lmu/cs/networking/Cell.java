@@ -2,10 +2,9 @@ package edu.lmu.cs.networking;
 
 import javax.swing.*;
 
-/**
- * Created by Andrey on 10.12.2016.
- */
-public class Cell extends JPanel{
+
+public class Cell extends JPanel {
+
 
     public CellTypes getType() {
         return type;
@@ -36,15 +35,27 @@ public class Cell extends JPanel{
         this.hasSecondPlayer = hasSecondPlayer;
     }
 
+    JLabel label = new JLabel((Icon) null);
+
+    public Cell() {
+        new Cell(CellTypes.UNKNOWN);
+        add(label);
+    }
+
+    public void setIcon(ImageIcon icon) {
+        label.setIcon(icon);
+    }
+
     public Cell(CellTypes type) {
         this.type = type;
         this.setBackground(type.getColor());
         this.setVisible(true);
     }
 
-    public Cell() {
-        new Cell(CellTypes.UNKNOWN);
-    }
+//    public Cell() {
+//        new Cell(CellTypes.UNKNOWN);
+//    }
 
 
 }
+
