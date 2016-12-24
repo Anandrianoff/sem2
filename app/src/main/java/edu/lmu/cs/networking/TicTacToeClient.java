@@ -1,13 +1,17 @@
 package edu.lmu.cs.networking;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+
+import javax.swing.*;
 
 /**
  * A client for the TicTacToe game, modified and extended from the
@@ -29,9 +33,19 @@ import java.net.Socket;
 public class TicTacToeClient {
 
     private String action;
+    private String shiftDirection;
     private JFrame frame = new JFrame("Minotavr");
 
     private JLabel messageLabel = new JLabel("");
+    JPanel navPanel;
+
+    JButton btnUp;
+    JButton btnGo;
+    JButton btnBomb;
+    JButton btnSkip;
+    JButton btnDown;
+    JButton btnLeft;
+    JButton btnRight;
 
     public ImageIcon getIcon() {
         return icon;
@@ -47,6 +61,13 @@ public class TicTacToeClient {
     private Cell[][] cellBoard = new Cell[9][9];
     private Cell[][] cellBoardEnemy = new Cell[9][9];
     private Cell currentCell;
+    private Cell currentOppenetCell;
+
+    private int clientPositionX = 4;
+    private int clientPositionY = 4;
+
+    private int opponentPositionX = 4;
+    private int opponentPositionY = 4;
 
     private static int PORT = 8903;
     private Socket socket;
@@ -68,58 +89,66 @@ public class TicTacToeClient {
                 socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
 
+
         // Layout GUI
-        JButton btnUp = new JButton("↑");
-        JButton btnGo = new JButton("GO");
-        JButton btnBomb = new JButton("BOMB");
+        btnUp = new JButton("↑");
+        btnGo = new JButton("GO");
+        btnBomb = new JButton("BOMB");
 //        JButton btnAsk = new JButton("ASK");
-        JButton btnStay = new JButton("SKIP");
-        JButton btnDown = new JButton("↓");
-        JButton btnLeft = new JButton("←");
-        JButton btnRight = new JButton("→");
-        btnUp.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "up";
-            }
-        });
-        btnGo.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "GO";
-            }
-        });
-//        btnAsk.addMouseListener(new MouseAdapter() {
+        btnSkip = new JButton("SKIP");
+        btnDown = new JButton("↓");
+        btnLeft = new JButton("←");
+        btnRight = new JButton("→");
+//        btnUp.addMouseListener(new MouseAdapter() {
 //            public void mousePressed(MouseEvent e) {
-//                action = "ASK";
+//                action = "up";
 //            }
 //        });
-        btnDown.addMouseListener(new MouseAdapter() {
+        btnGo.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
-                action = "down";
+                action = "MOVE ";
             }
         });
-        btnLeft.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "left";
+
+
+        //0-1 x y  --> -y +x
+        btnDown.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                shiftDirection = MoveParser.intToString(0, -1);
+                out.println(action + shiftDirection);
             }
         });
-        btnRight.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "right";
+
+        // -1 0
+        btnLeft.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                shiftDirection = MoveParser.intToString(-1, 0);
+                out.println(action + shiftDirection);
             }
         });
-        btnStay.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "MOVE +0+0";
+        //1 0
+        btnRight.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                shiftDirection = MoveParser.intToString(1, 0);
+                out.println(action + shiftDirection);
             }
         });
-        btnUp.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                action = "up";
+        btnSkip.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                shiftDirection = "+0+0";
+                out.println("MOVE " + shiftDirection);
+            }
+        });
+        btnUp.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                shiftDirection = MoveParser.intToString(0, 1);
+                System.out.println(action + shiftDirection);
+                out.println(action + shiftDirection);
             }
         });
         btnBomb.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
-                action = "BOMB";
+                action = "BOMB ";
             }
         });
 
@@ -128,7 +157,7 @@ public class TicTacToeClient {
 
         frame.getContentPane().add(messageLabel, "South");
 
-        JPanel navPanel = new JPanel();
+        navPanel = new JPanel();
         navPanel.setSize(110, 370);
         navPanel.setBackground(Color.lightGray);
         navPanel.setLayout(new GridLayout(4, 0));
@@ -139,7 +168,8 @@ public class TicTacToeClient {
         navPanel.add(btnGo, "West");
         navPanel.add(btnBomb, "West");
 //        navPanel.add(btnAsk, "West");
-        navPanel.add(btnStay, "West");
+        navPanel.add(btnSkip, "West");
+
 //        navPanel.setLayout(new GridLayout(9, 9, 4, 4));
 
         //main panel
@@ -168,17 +198,19 @@ public class TicTacToeClient {
                     continue;
                 }
 
-                    cellBoard[i][j].setIcon(createImageIcon("help1.png", "unknown"));
-                    cellBoardEnemy[i][j].setIcon(createImageIcon("help1.png", "unknown"));
-                    //                    cellBoard[i][j].addMouseListener(new MouseAdapter() {
+                cellBoard[i][j].setIcon(createImageIcon("help1.png", "unknown"));
+                cellBoardEnemy[i][j].setIcon(createImageIcon("help1.png", "unknown"));
+                //                    cellBoard[i][j].addMouseListener(new MouseAdapter() {
 //                public void mousePressed(MouseEvent e) {
 //                    currentSquare = board[j];
 //                    out.println("MOVE " + j);}});
-                    boardPanel.add(cellBoard[i][j]);
-                    enemyBoardPanel.add(cellBoardEnemy[i][j]);
+                boardPanel.add(cellBoard[i][j]);
+                enemyBoardPanel.add(cellBoardEnemy[i][j]);
 
             }
         }
+        currentCell = cellBoard[4][4];
+        currentOppenetCell = cellBoardEnemy[4][4];
         frame.getContentPane().add(boardPanel, "West");
         frame.getContentPane().add(navPanel, "Center");
         frame.getContentPane().add(enemyBoardPanel, "East");
@@ -205,19 +237,170 @@ public class TicTacToeClient {
                 String name = response.substring(8);
 
                 frame.setTitle("Minotavr - Player " + name);
+                if (name.contains("2")) {
+                    btnUp.setEnabled(false);
+                    btnDown.setEnabled(false);
+                    btnLeft.setEnabled(false);
+                    btnRight.setEnabled(false);
+                    btnSkip.setEnabled(false);
+                }
             }
             while (true) {
                 response = in.readLine();
                 if (response.startsWith("VALID_MOVE")) {
                     messageLabel.setText("Valid move, please wait");
-                    currentCell.setIcon(icon);
+//                    btnUp.setIcon(createImageIcon("bomb.png", "hyi"));
+                    btnUp.setEnabled(false);
+                    btnDown.setEnabled(false);
+                    btnLeft.setEnabled(false);
+                    btnRight.setEnabled(false);
+                    btnSkip.setEnabled(false);
+                    clientPositionX += -MoveParser.parseYToInt(shiftDirection);
+                    clientPositionY += MoveParser.parseXToInt(shiftDirection);
+
+                    currentCell.setIcon(createImageIcon("epty.gif", "dfwef"));
                     currentCell.repaint();
-                } else if (response.startsWith("OPPONENT_MOVED")) {
-                    int loc = Integer.parseInt(response.substring(15));
-//                    cellBoard[0][0].setIcon();
-//                    cellBoard[loc].repaint();
-                    messageLabel.setText("Opponent moved, your turn");
-                } else if (response.startsWith("VICTORY")) {
+                    currentCell = cellBoard[clientPositionX][clientPositionY];
+                    currentCell.setIcon(createImageIcon("shahid1.png", "seres"));
+                    currentCell.repaint();
+                    // OPPONENT (координаты сдвига х,у)[+0-1] (координаты гранитных стен) [+0-1](координаты пустых)[+0-1]
+                    //          (координата неизвестной стены) [+0-1]
+                } else if (response.startsWith("OPPONENT")) {
+                    String[] parampampam = response.substring(9).split(" ");
+//                    for (String s : parampampam){
+//                        System.out.println(s);
+//                    }
+
+                    if (!parampampam[0].contains("?")) {
+                        int tmpX = 0;
+                        if (parampampam[0].charAt(0) == '+')
+                            tmpX += Integer.parseInt(String.valueOf(parampampam[0].charAt(1)));
+                        else
+                            tmpX += -1 * Integer.parseInt(String.valueOf(parampampam[0].charAt(1)));
+
+                        int tmpY = 0;
+                        if (parampampam[0].charAt(2) == '+')
+                            tmpY += Integer.parseInt(String.valueOf(parampampam[0].charAt(3)));
+                        else
+                            tmpY += -1 * Integer.parseInt(String.valueOf(parampampam[0].charAt(3)));
+                        String opponentMove = ((tmpX >= 0) ? "+" + tmpX : "" + tmpX) + ((tmpY >= 0) ? "-" + tmpY : "+" + (-tmpY));
+//                            MoveParser.convert(tmpX, tmpY);
+
+
+                        int ublX = -tmpY;
+                        int ublY = tmpX;
+//                    if (opponentMove.charAt(0) == '+')
+//                        ublX+= Integer.parseInt(String.valueOf(parampampam[0].charAt(1)));
+//                    else
+//                        ublX += -1 * Integer.parseInt(String.valueOf(parampampam[0].charAt(1)));
+//
+//                    int ublY= 0;
+//                    if (opponentMove.charAt(2) == '+')
+//                       ublY+= Integer.parseInt(String.valueOf(parampampam[0].charAt(3)));
+//                    else
+//                        ublY += -1 * Integer.parseInt(String.valueOf(parampampam[0].charAt(3)));
+                        opponentPositionX += ublX;
+                        opponentPositionY += ublY;
+
+                        currentOppenetCell.setIcon(createImageIcon("epty.gif", "dfwef"));
+                        currentOppenetCell.repaint();
+                        currentOppenetCell = cellBoardEnemy[opponentPositionX][opponentPositionY];
+                        currentOppenetCell.setIcon(createImageIcon("shahid2.png", "seres"));
+                        currentOppenetCell.repaint();
+
+
+//                    int loc = Integer.parseInt(response.substring(15));
+////                    cellBoard[0][0].setIcon();
+////                    cellBoard[loc].repaint();
+                        btnUp.setEnabled(true);
+                        btnDown.setEnabled(true);
+                        btnLeft.setEnabled(true);
+                        btnRight.setEnabled(true);
+                        btnSkip.setEnabled(true);
+                        messageLabel.setText("Opponent moved, your turn");
+                    } else if (!parampampam[parampampam.length - 1].contains("?")) {
+                        //// TODO: 23.12.2016
+                        int tmpX = 0;
+                        if (parampampam[parampampam.length - 1].charAt(0) == '+')
+                            tmpX += Integer.parseInt(String.valueOf(parampampam[parampampam.length - 1].charAt(1)));
+                        else
+                            tmpX += -1 * Integer.parseInt(String.valueOf(parampampam[parampampam.length - 1].charAt(1)));
+
+                        int tmpY = 0;
+                        if (parampampam[parampampam.length - 1].charAt(2) == '+')
+                            tmpY += Integer.parseInt(String.valueOf(parampampam[parampampam.length - 1].charAt(3)));
+                        else
+                            tmpY += -1 * Integer.parseInt(String.valueOf(parampampam[parampampam.length - 1].charAt(3)));
+                        String opponentMove = ((tmpX >= 0) ? "+" + tmpX : "" + tmpX) + ((tmpY >= 0) ? "-" + tmpY : "+" + (-tmpY));
+
+                        int ublX = -tmpY;
+                        int ublY = tmpX;
+
+                        System.out.println(opponentPositionX + ublX + "  " + opponentPositionY + ublY);
+                        try {
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].setIcon(createImageIcon("smoke.png", "smoke"));
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].repaint();
+
+                        } catch (Exception ex) {
+                        }
+                    }else if (!parampampam[2].contains("?")) {
+                        //// TODO: 23.12.2016
+                        int tmpX = 0;
+                        if (parampampam[2].charAt(0) == '+')
+                            tmpX += Integer.parseInt(String.valueOf(parampampam[2].charAt(1)));
+                        else
+                            tmpX += -1 * Integer.parseInt(String.valueOf(parampampam[2].charAt(1)));
+
+                        int tmpY = 0;
+                        if (parampampam[2].charAt(2) == '+')
+                            tmpY += Integer.parseInt(String.valueOf(parampampam[2].charAt(3)));
+                        else
+                            tmpY += -1 * Integer.parseInt(String.valueOf(parampampam[2].charAt(3)));
+                        String opponentMove = ((tmpX >= 0) ? "+" + tmpX : "" + tmpX) + ((tmpY >= 0) ? "-" + tmpY : "+" + (-tmpY));
+
+                        int ublX = -tmpY;
+                        int ublY = tmpX;
+
+                        System.out.println(opponentPositionX + ublX + "  " + opponentPositionY + ublY);
+                        try {
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].setIcon(createImageIcon("epty.gif", "smoke"));
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].repaint();
+
+                        } catch (Exception ex) {
+                        }
+                    }
+                    else if (!parampampam[1].contains("?")) {
+                        //// TODO: 23.12.2016
+                        int tmpX = 0;
+                        if (parampampam[1].charAt(0) == '+')
+                            tmpX += Integer.parseInt(String.valueOf(parampampam[1].charAt(1)));
+                        else
+                            tmpX += -1 * Integer.parseInt(String.valueOf(parampampam[1].charAt(1)));
+
+                        int tmpY = 0;
+                        if (parampampam[1].charAt(2) == '+')
+                            tmpY += Integer.parseInt(String.valueOf(parampampam[1].charAt(3)));
+                        else
+                            tmpY += -1 * Integer.parseInt(String.valueOf(parampampam[1].charAt(3)));
+                        String opponentMove = ((tmpX >= 0) ? "+" + tmpX : "" + tmpX) + ((tmpY >= 0) ? "-" + tmpY : "+" + (-tmpY));
+
+                        int ublX = -tmpY;
+                        int ublY = tmpX;
+
+                        System.out.println(opponentPositionX + ublX + "  " + opponentPositionY + ublY);
+                        try {
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].setIcon(createImageIcon("granit.png", "smoke"));
+                            cellBoardEnemy[opponentPositionX + ublX][opponentPositionY + ublY].repaint();
+
+                        } catch (Exception ex) {
+                        }
+                    }
+                    btnUp.setEnabled(true);
+                    btnDown.setEnabled(true);
+                    btnLeft.setEnabled(true);
+                    btnRight.setEnabled(true);
+                    btnSkip.setEnabled(true);
+                } else if (response.startsWith("WIN")) {
                     messageLabel.setText("You win");
                     break;
                 } else if (response.startsWith("DEFEAT")) {
@@ -228,6 +411,31 @@ public class TicTacToeClient {
                     break;
                 } else if (response.startsWith("MESSAGE")) {
                     messageLabel.setText(response.substring(8));
+                } else if (response.startsWith("INVALID")) {
+                    try{
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].setIcon(createImageIcon("smoke.png", "seres"));
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].repaint();
+                    }catch (Exception ex){
+
+                    }
+
+                }
+                else if (response.startsWith("BOMBED")){
+                    String s =response.substring(6);
+                    if (s.contains("e")){
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].setIcon(createImageIcon("epty.gif", "seres"));
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].repaint();
+
+                    }
+                    else if (s.contains("g")){
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].setIcon(createImageIcon("granit.png", "seres"));
+                        cellBoard[clientPositionX + (-MoveParser.parseYToInt(shiftDirection))][clientPositionY + MoveParser.parseXToInt(shiftDirection)].repaint();
+                    }
+                    btnUp.setEnabled(false);
+                    btnDown.setEnabled(false);
+                    btnLeft.setEnabled(false);
+                    btnRight.setEnabled(false);
+                    btnSkip.setEnabled(false);
                 }
             }
             out.println("QUIT");

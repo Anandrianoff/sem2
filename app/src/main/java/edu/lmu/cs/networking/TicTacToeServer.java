@@ -1,8 +1,13 @@
 package edu.lmu.cs.networking;
 
+import sun.rmi.runtime.Log;
 
-
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +43,7 @@ import java.util.List;
  * players to play.
  */
 public class TicTacToeServer {
-//    static Logger log = Logger.getLogger(TicTacToeServer.class);
+
     public static volatile List<Game> gamesArchive = new ArrayList<Game>(){};
 
     /**
@@ -52,8 +57,8 @@ public class TicTacToeServer {
             while (true) {
                 Game game = new Game();
                 gamesArchive.add(game);
-                Game.Player player1 = game.new Player(listener.accept(), "player1",2,3);
-                Game.Player player2 = game.new Player(listener.accept(), "player2",4,0);
+                Game.Player player1 = game.new Player(listener.accept(), "player1");
+                Game.Player player2 = game.new Player(listener.accept(), "player2");
                 player1.setOpponent(player2);
                 player2.setOpponent(player1);
                 game.currentPlayer = player1;
@@ -61,7 +66,6 @@ public class TicTacToeServer {
                 player2.start();
             }
         } finally {
-//            log.info("Listener closes");
             listener.close();
         }
     }

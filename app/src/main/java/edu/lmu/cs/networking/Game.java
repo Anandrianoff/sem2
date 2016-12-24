@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Random;
 
 /**
  * A two-player game.
@@ -40,7 +41,8 @@ public class Game {
      * TODO
      */
     public boolean hasWinner(int shX, int shY) {
-        return false;
+        return currentPlayer.getRealPositionX()+shX == currentPlayer.opponent.getRealPositionX() &&
+                currentPlayer.getRealPositionY()+shY == currentPlayer.opponent.getRealPositionY();
 
     }
 
@@ -85,11 +87,15 @@ public class Game {
     }
 
     public synchronized boolean canMoveHere(int shX, int shY, Player player) {
-        if (player == currentPlayer && board1[currentPlayer.getRealPositionX() + shX][currentPlayer.getRealPositionY() + shY].getType().equals(CellTypes.EMPTY)) {
-            currentPlayer = currentPlayer.opponent;
-            currentPlayer.otherPlayerMoved(currentPlayer.getRealPositionX() + shX, currentPlayer.getRealPositionY() + shY);
+        try {
+            if (player == currentPlayer && board1[currentPlayer.getRealPositionX() + shX][currentPlayer.getRealPositionY() + shY].getType().equals(CellTypes.EMPTY)) {
+                return true;
+            }
+            return false;
+        }catch (Exception ex){
+            System.out.println("Ne popal");
+            return false;
         }
-        return false;
     }
 
     /**
@@ -134,7 +140,23 @@ public class Game {
          * initializes the stream fields, displays the first two
          * welcoming messages.
          */
-        public Player(Socket socket, String name, int realPositionX, int realPositionY) {
+        public Player(Socket socket, String name) {
+            Random rn = new Random();
+            int tmpX=0;
+            int tmpY = 0;
+            tmpX=rn.nextInt(4);
+            tmpY=rn.nextInt(4);
+            while (!board1[tmpX][tmpY].getType().equals(CellTypes.EMPTY)){
+                tmpX=rn.nextInt(4);
+                tmpY=rn.nextInt(4);
+            }
+
+//            tmpX=0;
+//            tmpY = 1;
+            realPositionX = tmpX;
+            realPositionY = tmpY;
+
+
             this.socket = socket;
             this.name = name;
             try {
@@ -146,6 +168,7 @@ public class Game {
             } catch (IOException e) {
                 System.out.println("Player died: " + e);
             }
+
         }
 
         /**
@@ -159,8 +182,8 @@ public class Game {
          * Handles the otherPlayerMoved message.
          */
         public void otherPlayerMoved(int realPositionX, int realPositionY) {
-            output.println("OPPONENT_MOVED " + realPositionX + realPositionY);
-            // TODO: 15.12.2016  
+            output.println("OPPONENT " + realPositionX + realPositionY);
+            // TODO: 15.12.2016
 //            output.println(
 //                    hasWinner() ? "DEFEAT" : boardFilledUp() ? "TIE" : "");
         }
@@ -174,7 +197,7 @@ public class Game {
                 output.println("MESSAGE All players connected");
 
                 // Tell the first player that it is her turn.
-                if (name == "pl1") {
+                if (name == "player1") {
                     output.println("MESSAGE Your move");
                 }
 
@@ -183,38 +206,69 @@ public class Game {
                     //// TODO: 15.12.2016
                     String command = input.readLine();
                     if (command.startsWith("MOVE")) {
-                        shiftX = Integer.parseInt(command.substring(5));
-                        shiftY = Integer.parseInt(command.substring(6));
+                        System.out.println(command);
+
+                        String tmpComm = command.substring(5);
+                        shiftX = MoveParser.parseXToInt(tmpComm);
+                        shiftY = MoveParser.parseYToInt(tmpComm);
+
+                        System.out.println(shiftX +" "+ shiftY +" shiftX + shiftY from MOVE");
+//                        shiftX = Integer.parseInt(command.substring(5));
+//                        shiftY = Integer.parseInt(command.substring(6));
                         if (canMoveHere(shiftX, shiftY, this)) {
                             //на клиенте нужно запомнить куда он пытался ходить
                             output.println("VALID_MOVE");
                             realPositionX += shiftX;
                             realPositionY += shiftY;
-                            currentPlayer.opponent.output.println("OPPONENT "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                            currentPlayer.opponent.output.println("OPPONENT " + MoveParser.intToString(shiftX,shiftY) +
                                     " ? ? ?");
-                        }
-                    } else if (command.startsWith("QUIT")) {
-                        return;
-                    }
+                            currentPlayer = currentPlayer.opponent;
+                        }else {
+                            output.println("INVALID_MOVE");
+                            System.out.println("Booobs");
+                            currentPlayer.opponent.output.println("OPPONENT ? ? ? "+ MoveParser.intToString(shiftX,shiftY));
+                        }}
+//                    } else if (command.startsWith("QUIT")) {
+//                        return;
+//                    }
 
                     if (command.startsWith("BOMB")) {
-                        shiftX = Integer.parseInt(command.substring(5));
-                        shiftY = Integer.parseInt(command.substring(6));
-                        if (hasWinner(currentPlayer.realPositionX + shiftX, currentPlayer.realPositionY + shiftY)) {
+                        String s =command.substring(5);
+                        shiftX = MoveParser.parseXToInt(s);
+                        shiftY = MoveParser.parseYToInt(s);
+                        if (hasWinner(shiftX,shiftY)) {
+
+                            System.out.println("wiiin");
                             output.println("WIN");
                             currentPlayer.opponent.output.println("DEFEAT");
                         } else {
 
-                            if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.GRANITE)) {
+                            try{
+
+                                if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.BRICK))
+                                {
+                                    board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY] = new Cell(CellTypes.EMPTY);
+                                    output.println("BOMBED " + "e");
+                                    currentPlayer.opponent.output.println("OPPONENT ? ? " + MoveParser.intToString(shiftX,shiftY) +
+                                            " ?");
+                                }
+
+                                if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.GRANITE)) {
+                                    output.println("BOMBED " + "g");
+                                    currentPlayer.opponent.output.println("OPPONENT ? " + MoveParser.intToString(shiftX,shiftY) +
+                                            " ? ?");
+                                }
+                                if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.EMPTY)) {
+                                    output.println("BOMBED " + "e");
+                                    currentPlayer.opponent.output.println("OPPONENT ? ? " + MoveParser.intToString(shiftX,shiftY) +
+                                            " ?");
+                                }
+                            }catch (Exception ex){
                                 output.println("BOMBED " + "g");
-                                currentPlayer.opponent.output.println("OPPONENT ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                                currentPlayer.opponent.output.println("OPPONENT ? " + MoveParser.intToString(shiftX,shiftY) +
                                         " ? ?");
                             }
-                            if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.EMPTY)) {
-                                output.println("BOMBED " + "e");
-                                currentPlayer.opponent.output.println("OPPONENT ? ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
-                                        " ?");
-                            }
+                            currentPlayer = currentPlayer.opponent;
                         }
                     }
 
@@ -226,11 +280,11 @@ public class Game {
                             //u -uknown cell
                             // e-empty cell
                             output.println("ASK " + "u");
-                            currentPlayer.opponent.output.println("OPPONENT ? ? ? "+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY));
+                            currentPlayer.opponent.output.println("OPPONENT ? ? ? " + MoveParser.intToString(shiftX,shiftY));
                         }
                         if (board1[currentPlayer.getRealPositionX() + shiftX][currentPlayer.getRealPositionY() + shiftY].getType().equals(CellTypes.EMPTY)) {
                             output.println("ASK " + "e");
-                            currentPlayer.opponent.output.println("OPPONENT ? ?"+((shiftX > 0)? "+" + shiftX: shiftX) + ((shiftY > 0)? "+" + shiftY: shiftY)+
+                            currentPlayer.opponent.output.println("OPPONENT ? ?" + MoveParser.intToString(shiftX,shiftY) +
                                     " ?");
                         }
 
